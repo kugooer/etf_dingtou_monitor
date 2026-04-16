@@ -71,6 +71,7 @@ for code in ETF_CODES:
 
 MA_PERIOD = 250
 
+PROXY_URL = os.getenv("PROXY_URL", "")
 BARK_URL = os.getenv("BARK_URL", "")
 
 # ── 数据获取 ──────────────────────────────────────────────────────
@@ -84,8 +85,9 @@ def fetch_etf_price(code: str) -> float | None:
 
     # ① 东方财富 HTTP API
     try:
+        base = PROXY_URL if PROXY_URL else "https://push2his.eastmoney.com"
         url = (
-            f"https://push2his.eastmoney.com/api/qt/stock/kline/get"
+            f"{base}/api/qt/stock/kline/get"
             f"?secid=1.{code}&fields1=f1,f2,f3,f4,f5"
             f"&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
             f"&klt=101&fqt=1&end=20500101&lmt=250"
@@ -159,8 +161,9 @@ def fetch_historical_prices(code: str, days: int = 260) -> list[float] | None:
     # ① 东方财富 API
     for _ in range(3):
         try:
+            base = PROXY_URL if PROXY_URL else "https://push2his.eastmoney.com"
             url = (
-                f"https://push2his.eastmoney.com/api/qt/stock/kline/get"
+                f"{base}/api/qt/stock/kline/get"
                 f"?secid=1.{code}&fields1=f1,f2,f3,f4,f5"
                 f"&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
                 f"&klt=101&fqt=1&end=20500101&lmt={days}"

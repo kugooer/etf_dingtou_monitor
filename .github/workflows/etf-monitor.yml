@@ -2,10 +2,8 @@ name: ETF Monitor
 
 on:
   schedule:
-    # UTC 6:00 = 北京时间 14:00
     - cron: "0 6 * * *"
   workflow_dispatch:
-    # 手动触发
 
 jobs:
   monitor:
@@ -28,5 +26,6 @@ jobs:
         env:
           ETF_CODES: ${{ secrets.ETF_CODES }}
           ETF_NAMES: ${{ secrets.ETF_NAMES }}
+          PROXY_URL: ${{ secrets.PROXY_URL }}
           BARK_URL: ${{ secrets.BARK_URL }}
         run: python etf_dingtou_monitor.py
