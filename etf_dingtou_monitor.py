@@ -84,14 +84,14 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 TELEGRAM_GROUP = os.getenv("TELEGRAM_GROUP", "")
 
+PROXY_URL = os.getenv("PROXY_URL", "")
+BARK_URL = os.getenv("BARK_URL", "")
+BARK_GROUP = os.getenv("BARK_GROUP", "")
+
 ENABLE_BARK = bool(BARK_URL)
 ENABLE_TELEGRAM = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
 
 digest_buffers = {"Bark": [], "Telegram": []}
-
-PROXY_URL = os.getenv("PROXY_URL", "")
-BARK_URL = os.getenv("BARK_URL", "")
-BARK_GROUP = os.getenv("BARK_GROUP", "")
 
 # ── 数据获取 ──────────────────────────────────────────────────────
 def fetch_etf_price(code: str) -> float | None:
