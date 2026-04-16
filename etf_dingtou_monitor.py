@@ -13,6 +13,12 @@ import subprocess
 import urllib.request
 import urllib.parse
 
+def get_baostock_code(code: str) -> str:
+    if code.startswith("5"):
+        return f"sh.{code}"
+    else:
+        return f"sz.{code}"
+
 # ── 日志 ──────────────────────────────────────────────────────────
 LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
 LOG_FILE = os.path.join(LOG_DIR, "etf_monitor.log")
@@ -93,7 +99,7 @@ def fetch_etf_price(code: str) -> float | None:
         import baostock as bs
         lg = bs.login()
         rs = bs.query_history_k_data_plus(
-            f"sh.{code}",
+            get_baostock_code(code),
             "date,close",
             start_date=str(datetime.date.today() - datetime.timedelta(days=10)),
             end_date=str(datetime.date.today()),
@@ -174,7 +180,7 @@ def fetch_historical_prices(code: str, days: int = 260) -> list[float] | None:
         import baostock as bs
         bs.login()
         rs = bs.query_history_k_data_plus(
-            f"sh.{code}",
+            get_baostock_code(code),
             "date,close",
             start_date=str(datetime.date.today() - datetime.timedelta(days=days)),
             end_date=str(datetime.date.today()),
