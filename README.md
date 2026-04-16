@@ -16,10 +16,21 @@
 | 变量 | 必需 | 默认值 | 说明 |
 |-----|------|--------|------|
 | `ETF_CODES` | 否 | `512890` | ETF 代码，多个用逗号分隔 |
-| `ETF_NAMES` | 否 | - |ETF名称映射，格式：`512890:红利低波,159919:创业板` |
+| `ETF_NAMES` | 否 | - | ETF名称映射，格式：`512890:红利低波,159919:创业板` |
 | `PROXY_URL` | 否 | - | 东方财富 API 中转地址（Cloudflare Worker） |
-| `BARK_URL` | 否 | - | Bark 推送 URL |
+| `PUSH_MODE` | 否 | `digest` | 推送模式：`per_item`(逐条) 或 `digest`(汇总) |
+| `BARK_URL` | 否 | - | Bark 推送 URL（配置后启用） |
 | `BARK_GROUP` | 否 | - | Bark 分组名称 |
+| `TELEGRAM_BOT_TOKEN` | 否 | - | Telegram 机器人 Token（配置后启用） |
+| `TELEGRAM_CHAT_ID` | 否 | - | Telegram 接收者 ID |
+| `TELEGRAM_GROUP` | 否 | - | Telegram 分组名称（可选） |
+
+### 推送自动检测
+
+- 有 `BARK_URL` → 自动启用 Bark 推送
+- 有 `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` → 自动启用 Telegram 推送
+- `PUSH_MODE=digest`：执行结束后汇总发送所有通知
+- `PUSH_MODE=per_item`：每条通知立即发送
 
 ## 市场代码规则
 

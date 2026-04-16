@@ -78,6 +78,16 @@ for code in ETF_CODES:
 
 MA_PERIOD = 250
 
+PUSH_MODE = os.getenv("PUSH_MODE", "digest")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+TELEGRAM_GROUP = os.getenv("TELEGRAM_GROUP", "")
+
+ENABLE_BARK = bool(BARK_URL)
+ENABLE_TELEGRAM = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
+
+digest_buffers = {"Bark": [], "Telegram": []}
+
 PROXY_URL = os.getenv("PROXY_URL", "")
 BARK_URL = os.getenv("BARK_URL", "")
 BARK_GROUP = os.getenv("BARK_GROUP", "")
@@ -226,29 +236,95 @@ def calc_ma(prices: list[float], period: int) -> float | None:
 
 
 # ── 提醒推送 ──────────────────────────────────────────────────────
+def send_bark_message(title: str, body: str):
+    if not BARK_URL:
+        return False
+    try:
+        url = f"{BARK_URL}/{urllib.parse.quote(title)}/{urllib.parse.quote(body)}"
+        if BARK_GROUP:
+            url += f"?group={urllib.parse.quote(BARK_GROUP)}"
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("User-Agent", "Mozilla/5.0")
+        urllib.request.urlopen(req, timeout=10)
+        log("Bark 通知已发送")
+        return True
+    except Exception as e:
+        log(f"Bark 通知失败: {e}", "WARN")
+        return False
+
+
+def send_telegram_message(text: str):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return False
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": text,
+            "parse_mode": "Markdown"
+        }
+        if TELEGRAM_GROUP:
+            data["message_thread_id"] = TELEGRAM_GROUP
+        req = urllib.request.Request(url, data=urllib.parse.urlencode(data).encode(), method="POST")
+        req.add_header("User-Agent", "Mozilla/5.0")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        urllib.request.urlopen(req, timeout=10)
+        log("Telegram 通知已发送")
+        return True
+    except Exception as e:
+        log(f"Telegram 通知失败: {e}", "WARN")
+        return False
+
+
+def send_push(provider: str, title: str, body: str):
+    if provider == "Bark":
+        return send_bark_message(title, body)
+    elif provider == "Telegram":
+        text = f"{title}\n\n{body}"
+        return send_telegram_message(text)
+    return False
+
+
+def add_to_digest(provider: str, text: str):
+    if provider in digest_buffers:
+        digest_buffers[provider].append(text)
+
+
+def flush_digest():
+    if PUSH_MODE != "digest":
+        return
+    if not digest_buffers["Bark"] and not digest_buffers["Telegram"]:
+        return
+    lines = []
+    lines.append("📊 ETF 定投汇总")
+    lines.append(f"📅 {datetime.date.today()}")
+    lines.append("")
+    for text in digest_buffers["Bark"]:
+        lines.append(f"① {text}")
+        lines.append("")
+    for text in digest_buffers["Telegram"]:
+        lines.append(f"② {text}")
+        lines.append("")
+    digest_text = "\n".join(lines)
+    if ENABLE_BARK and digest_buffers["Bark"]:
+        send_bark_message("📊 ETF 定投汇总", digest_text)
+    if ENABLE_TELEGRAM and digest_buffers["Telegram"]:
+        send_telegram_message(digest_text)
+    digest_buffers["Bark"] = []
+    digest_buffers["Telegram"] = []
+
+
 def send_notification(title: str, body: str):
-    if BARK_URL:
-        try:
-            url = f"{BARK_URL}/{urllib.parse.quote(title)}/{urllib.parse.quote(body)}"
-            if BARK_GROUP:
-                url += f"?group={urllib.parse.quote(BARK_GROUP)}"
-            req = urllib.request.Request(url, method="GET")
-            req.add_header("User-Agent", "Mozilla/5.0")
-            urllib.request.urlopen(req, timeout=10)
-            log("Bark 通知已发送")
-        except Exception as e:
-            log(f"Bark 通知失败: {e}", "WARN")
+    if PUSH_MODE == "digest":
+        if ENABLE_BARK:
+            add_to_digest("Bark", body.replace("📈 ", "").replace("📌 ", ""))
+        if ENABLE_TELEGRAM:
+            add_to_digest("Telegram", body.replace("📈 ", ""))
     else:
-        try:
-            script = f'display notification "{body}" with title "{title}"'
-            subprocess.run(["osascript", "-e", script], check=True, capture_output=True)
-            log("macOS 通知已发送")
-        except Exception as e:
-            log(f"通知发送失败: {e}", "WARN")
-            print(f"\n{'='*50}")
-            print(f"📌 {title}")
-            print(body)
-            print("=" * 50)
+        if ENABLE_BARK:
+            send_push("Bark", title, body)
+        if ENABLE_TELEGRAM:
+            send_push("Telegram", title, body)
 
 
 def process_etf(code: str):
@@ -315,6 +391,9 @@ def main():
     # 遍历配置的 ETF 列表，逐个处理
     for code in ETF_CODES:
         process_etf(code)
+
+    # Digest 模式：在最后统一发送
+    flush_digest()
 
 
 if __name__ == "__main__":
