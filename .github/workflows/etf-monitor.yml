@@ -33,4 +33,4 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_GROUP: ${{ secrets.TELEGRAM_GROUP }}
-        run: python etf_dingtou_monitor.py
+        run: python etf_monitor.py
