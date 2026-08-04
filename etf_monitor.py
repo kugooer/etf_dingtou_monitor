@@ -301,7 +301,7 @@ def send_bark_message(title: str, body: str):
     if not BARK_URL:
         return False
     try:
-        url = f"{BARK_URL}/{urllib.parse.quote(title)}/{urllib.parse.quote(body)}"
+        url = f"{BARK_URL}/{urllib.parse.quote(title, safe='')}/{urllib.parse.quote(body, safe='')}"
         if BARK_GROUP:
             url += f"?group={urllib.parse.quote(BARK_GROUP)}"
         req = urllib.request.Request(url, method="GET")
@@ -354,22 +354,24 @@ def add_to_digest(provider: str, text: str):
 def flush_digest():
     if PUSH_MODE != "digest":
         return
-    if not digest_buffers["Bark"] and not digest_buffers["Telegram"]:
+    texts = []
+    for provider in ("Bark", "Telegram"):
+        for text in digest_buffers[provider]:
+            if text not in texts:
+                texts.append(text)
+    if not texts:
         return
     lines = []
     lines.append("📊 ETF 定投汇总")
     lines.append(f"📅 {datetime.date.today()}")
     lines.append("")
-    for text in digest_buffers["Bark"]:
+    for text in texts:
         lines.append(f"① {text}")
         lines.append("")
-    for text in digest_buffers["Telegram"]:
-        lines.append(f"② {text}")
-        lines.append("")
     digest_text = "\n".join(lines)
-    if ENABLE_BARK and digest_buffers["Bark"]:
+    if ENABLE_BARK:
         send_bark_message("📊 ETF 定投汇总", digest_text)
-    if ENABLE_TELEGRAM and digest_buffers["Telegram"]:
+    if ENABLE_TELEGRAM:
         send_telegram_message(digest_text)
     digest_buffers["Bark"] = []
     digest_buffers["Telegram"] = []
@@ -378,9 +380,9 @@ def flush_digest():
 def send_notification(title: str, body: str):
     if PUSH_MODE == "digest":
         if ENABLE_BARK:
-            add_to_digest("Bark", body.replace("📈 ", "").replace("📌 ", ""))
+            add_to_digest("Bark", body)
         if ENABLE_TELEGRAM:
-            add_to_digest("Telegram", body.replace("📈 ", ""))
+            add_to_digest("Telegram", body)
     else:
         if ENABLE_BARK:
             send_push("Bark", title, body)
