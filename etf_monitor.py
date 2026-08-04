@@ -55,7 +55,33 @@ def load_etf_names() -> dict:
             return mapping
     return {}
 
+def fetch_etf_names_from_tencent(codes: list[str]) -> dict:
+    """从腾讯行情接口批量获取 ETF 名称，返回 {code: name}"""
+    import urllib.request
+    symbols = ",".join(get_baostock_code(c).replace(".", "") for c in codes)
+    url = f"https://qt.gtimg.cn/q={symbols}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    names = {}
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            text = resp.read().decode("gbk", errors="ignore")
+        for line in text.split(";"):
+            if "=" not in line or '"' not in line:
+                continue
+            key = line.split("=")[0].replace("v_", "").strip()
+            fields = line.split('"')[1].split("~")
+            if len(fields) > 2 and fields[2] == key[2:]:
+                names[fields[2]] = fields[1]
+    except Exception as e:
+        log(f"[tencent-name] 获取名称失败: {e}", "WARN")
+    return names
+
 ETF_NAMES_MAP = load_etf_names()
+
+# 名称缺失时用腾讯接口自动补名（ETF_NAMES 优先级更高）
+missing = [c for c in ETF_CODES if c not in ETF_NAMES_MAP]
+if missing:
+    ETF_NAMES_MAP.update(fetch_etf_names_from_tencent(missing))
 
 MA_PERIOD = 250
 
