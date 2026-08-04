@@ -428,7 +428,7 @@ def process_etf(code: str):
         hint = "价格位于均线上方，耐心等待回调"
 
     # ④ 发送通知
-    title = f"📈 {name} 定投提醒"
+    title = f"📈 {name}[{code}] 定投提醒"
     body_lines = [
         f"📅 日期: {today}",
         f"💰 当前价格: ¥{current_price:.4f}",
@@ -448,6 +448,7 @@ def process_etf(code: str):
 def main():
     today = datetime.date.today()
     log(f"========== {today} 多ETF 定投监测开始 ==========")
+    log(f"配置: PUSH_MODE={PUSH_MODE!r}, ETF_CODES={ETF_CODES}, Bark={'开' if ENABLE_BARK else '关'}, Telegram={'开' if ENABLE_TELEGRAM else '关'}")
 
     # 遍历配置的 ETF 列表，逐个处理
     for code in ETF_CODES:
