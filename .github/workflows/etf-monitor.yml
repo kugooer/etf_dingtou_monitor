@@ -24,13 +24,13 @@ jobs:
 
       - name: Run ETF monitor
         env:
-          ETF_CODES: ${{ secrets.ETF_CODES }}
-          ETF_NAMES: ${{ secrets.ETF_NAMES }}
-          PROXY_URL: ${{ secrets.PROXY_URL }}
-          PUSH_MODE: ${{ secrets.PUSH_MODE }}
-          BARK_URL: ${{ secrets.BARK_URL }}
-          BARK_GROUP: ${{ secrets.BARK_GROUP }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_GROUP: ${{ secrets.TELEGRAM_GROUP }}
+          ETF_CODES: ${{ vars.ETF_CODES || secrets.ETF_CODES }}
+          ETF_NAMES: ${{ vars.ETF_NAMES || secrets.ETF_NAMES }}
+          PROXY_URL: ${{ vars.PROXY_URL || secrets.PROXY_URL }}
+          PUSH_MODE: ${{ vars.PUSH_MODE || secrets.PUSH_MODE }}
+          BARK_URL: ${{ vars.BARK_URL || secrets.BARK_URL }}
+          BARK_GROUP: ${{ vars.BARK_GROUP || secrets.BARK_GROUP }}
+          TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN || secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID || secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_GROUP: ${{ vars.TELEGRAM_GROUP || secrets.TELEGRAM_GROUP }}
         run: python etf_monitor.py
