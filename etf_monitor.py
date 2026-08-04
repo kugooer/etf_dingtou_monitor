@@ -361,11 +361,12 @@ def flush_digest():
                 texts.append(text)
     if not texts:
         return
-    body = "\n------------------------\n".join(texts)
+    sep = "------------------------"
+    body = sep + "\n" + ("\n" + sep + "\n").join(texts) + "\n" + sep
     if ENABLE_BARK:
-        send_bark_message("📊 ETF 定投汇总", "------------------------\n" + body)
+        send_bark_message("📊 ETF 定投汇总", body)
     if ENABLE_TELEGRAM:
-        send_telegram_message("📊 ETF 定投汇总\n------------------------\n" + body)
+        send_telegram_message("📊 ETF 定投汇总\n" + body)
     digest_buffers["Bark"] = []
     digest_buffers["Telegram"] = []
 
