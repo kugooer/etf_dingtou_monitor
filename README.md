@@ -5,7 +5,7 @@
 ## 功能特性
 
 - 多 ETF 监控：通过环境变量配置多个 ETF 代码
-- 三层数据源：东方财富 → akshare → baostock（自动降级）
+- 四层数据源：腾讯 → 新浪 → 东方财富 → baostock（自动降级，不依赖 akshare）
 - MA250 均线：计算 250 日移动平均线
 - 偏离度通知：无论高于还是低于均线都发送通知
 - Bark 推送：支持分组功能
@@ -92,7 +92,6 @@ cloudflare-worker.js  # Cloudflare Worker 中转脚本（可选）
 
 ## 依赖
 
-- akshare >= 1.12.0
 - baostock >= 0.8.8
 
 ## 许可证

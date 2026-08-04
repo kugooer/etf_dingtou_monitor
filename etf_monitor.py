@@ -55,27 +55,7 @@ def load_etf_names() -> dict:
             return mapping
     return {}
 
-def fetch_etf_name_from_api(code: str) -> str | None:
-    """从 akshare 获取 ETF 名称"""
-    try:
-        import akshare as ak
-        df = ak.fund_etf_spot_em()
-        match = df[df["代码"] == code]
-        if not match.empty:
-            name = match.iloc[0].get("名称", "")
-            return name if name else None
-    except:
-        pass
-    return None
-
 ETF_NAMES_MAP = load_etf_names()
-
-# 如果名称映射为空，尝试从 API 获取
-for code in ETF_CODES:
-    if code not in ETF_NAMES_MAP:
-        api_name = fetch_etf_name_from_api(code)
-        if api_name:
-            ETF_NAMES_MAP[code] = api_name
 
 MA_PERIOD = 250
 
@@ -94,52 +74,108 @@ ENABLE_TELEGRAM = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
 digest_buffers = {"Bark": [], "Telegram": []}
 
 # ── 数据获取 ──────────────────────────────────────────────────────
+def get_quote_symbol(code: str) -> str:
+    """行情代码（腾讯/新浪用，无点），如 sh512890 / sz159919"""
+    return get_baostock_code(code).replace(".", "")
+
+def fetch_eastmoney_klines(code: str, days: int) -> list[float] | None:
+    """东方财富日K线收盘价列表（升序），失败抛出异常。"""
+    import urllib.request
+    import urllib.error
+
+    base = PROXY_URL if PROXY_URL else "https://push2his.eastmoney.com"
+    secid = get_eastmoney_secid(code)
+    url = (
+        f"{base}/api/qt/stock/kline/get"
+        f"?secid={secid}&fields1=f1,f2,f3,f4,f5"
+        f"&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
+        f"&klt=101&fqt=1&end=20500101&lmt={days}"
+    )
+    log(f"[eastmoney-api] 请求URL: {url}")
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://quote.eastmoney.com/",
+    })
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    klines = data.get("data", {}).get("klines", [])
+    if not klines:
+        return None
+    return [float(k.split(",")[2]) for k in klines]
+
+def fetch_tencent_klines(code: str, count: int = 330) -> list[float] | None:
+    """腾讯证券前复权日K线收盘价列表（升序），失败返回 None。"""
+    symbol = get_quote_symbol(code)
+    url = (
+        f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        f"?param={symbol},day,,,{count},qfq"
+    )
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        node = data.get("data", {}).get(symbol, {})
+        klines = node.get("qfqday") or node.get("day") or []
+        prices = [float(k[2]) for k in klines]
+        if prices:
+            log(f"[tencent] 成功获取 {code} 前复权日K线 {len(prices)} 条")
+            return prices
+    except Exception as e:
+        log(f"[tencent] {code} 获取失败: {e}", "WARN")
+    return None
+
+def fetch_sina_klines(code: str, count: int = 330) -> list[float] | None:
+    """新浪日K线收盘价列表（升序），失败返回 None。"""
+    symbol = get_quote_symbol(code)
+    url = (
+        f"https://quotes.sina.cn/cn/api/json_v2.php/CN_MarketDataService.getKLineData"
+        f"?symbol={symbol}&scale=240&ma=no&datalen={count}"
+    )
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://finance.sina.com.cn",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        prices = [float(item["close"]) for item in data]
+        if prices:
+            log(f"[sina] 成功获取 {code} 日K线 {len(prices)} 条")
+            return prices
+    except Exception as e:
+        log(f"[sina] {code} 获取失败: {e}", "WARN")
+    return None
+
 def fetch_etf_price(code: str) -> float | None:
     """
     尝试多个数据源获取ETF最新价格（收盘价）。
     返回 None 表示所有数据源均失败。
     """
-    import urllib.request
-    import urllib.error
+    # ① 腾讯
+    prices = fetch_tencent_klines(code)
+    if prices:
+        close = prices[-1]
+        log(f"[tencent] 成功获取 {code} 最新收盘价: {close}")
+        return close
 
-    # ① 东方财富 HTTP API
+    # ② 新浪
+    prices = fetch_sina_klines(code)
+    if prices:
+        close = prices[-1]
+        log(f"[sina] 成功获取 {code} 最新收盘价: {close}")
+        return close
+
+    # ③ 东方财富
     try:
-        base = PROXY_URL if PROXY_URL else "https://push2his.eastmoney.com"
-        secid = get_eastmoney_secid(code)
-        url = (
-            f"{base}/api/qt/stock/kline/get"
-            f"?secid={secid}&fields1=f1,f2,f3,f4,f5"
-            f"&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
-            f"&klt=101&fqt=1&end=20500101&lmt=250"
-        )
-        log(f"[eastmoney-api] 请求URL: {url}")
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        klines = data.get("data", {}).get("klines", [])
-        if klines:
-            log(f"[eastmoney-api] K线数据条数: {len(klines)}")
-            log(f"[eastmoney-api] 最新K线: {klines[-1]}")
-            last = klines[-1].split(",")
-            close = float(last[2])
+        prices = fetch_eastmoney_klines(code, 250)
+        if prices:
+            close = prices[-1]
             log(f"[eastmoney-api] 成功获取 {code} 最新收盘价: {close}")
             return close
     except Exception as e:
         log(f"[eastmoney-api] {code} 获取失败: {e}", "WARN")
 
-    # ② akshare — fund_etf_hist
-    try:
-        import akshare as ak
-        df = ak.fund_etf_hist_em(symbol=code, period="daily", adjust="qfq")
-        if df is not None and len(df) > 0:
-            latest = df.iloc[-1]
-            close = float(latest["收盘"])
-            log(f"[akshare] 成功获取 {code} 最新收盘价: {close}")
-            return close
-    except Exception as e:
-        log(f"[akshare] {code} 获取失败: {e}", "WARN")
-
-    # ③ baostock — 日K线
+    # ④ baostock — 日K线
     try:
         import baostock as bs
         lg = bs.login()
@@ -174,26 +210,23 @@ def fetch_historical_prices(code: str, days: int = 260) -> list[float] | None:
     获取过去 N 个交易日的收盘价列表（用于计算均线）。
     返回升序排列的价格列表，失败返回 None。
     """
-    import urllib.request
-    import json as _json
+    count = max(days, 330)
 
-    # ① 东方财富 API
+    # ① 腾讯
+    prices = fetch_tencent_klines(code, count)
+    if prices:
+        return prices
+
+    # ② 新浪
+    prices = fetch_sina_klines(code, count)
+    if prices:
+        return prices
+
+    # ③ 东方财富
     for _ in range(3):
         try:
-            base = PROXY_URL if PROXY_URL else "https://push2his.eastmoney.com"
-            secid = get_eastmoney_secid(code)
-            url = (
-                f"{base}/api/qt/stock/kline/get"
-                f"?secid={secid}&fields1=f1,f2,f3,f4,f5"
-                f"&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
-                f"&klt=101&fqt=1&end=20500101&lmt={days}"
-            )
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = _json.loads(resp.read().decode("utf-8"))
-            klines = data.get("data", {}).get("klines", [])
-            if klines:
-                prices = [float(k.split(",")[2]) for k in klines]
+            prices = fetch_eastmoney_klines(code, days)
+            if prices:
                 log(f"[eastmoney-api] 成功获取 {code} 历史K线 {len(prices)} 条")
                 return prices
         except Exception as e:
@@ -201,14 +234,15 @@ def fetch_historical_prices(code: str, days: int = 260) -> list[float] | None:
             import time
             time.sleep(1)
 
-    # ② baostock 备用
+    # ④ baostock 备用（按自然日请求，需覆盖足够交易日）
     try:
         import baostock as bs
         bs.login()
+        calendar_days = max(days + 150, 450)
         rs = bs.query_history_k_data_plus(
             get_baostock_code(code),
             "date,close",
-            start_date=str(datetime.date.today() - datetime.timedelta(days=days)),
+            start_date=str(datetime.date.today() - datetime.timedelta(days=calendar_days)),
             end_date=str(datetime.date.today()),
             frequency="d",
             adjustflag="3"
