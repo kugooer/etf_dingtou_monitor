@@ -361,28 +361,22 @@ def flush_digest():
                 texts.append(text)
     if not texts:
         return
-    lines = []
-    lines.append("📊 ETF 定投汇总")
-    lines.append(f"📅 {datetime.date.today()}")
-    lines.append("")
-    for text in texts:
-        lines.append(f"① {text}")
-        lines.append("")
-    digest_text = "\n".join(lines)
+    body = "\n------------------------\n".join(texts)
     if ENABLE_BARK:
-        send_bark_message("📊 ETF 定投汇总", digest_text)
+        send_bark_message("📊 ETF 定投汇总", "------------------------\n" + body)
     if ENABLE_TELEGRAM:
-        send_telegram_message(digest_text)
+        send_telegram_message("📊 ETF 定投汇总\n------------------------\n" + body)
     digest_buffers["Bark"] = []
     digest_buffers["Telegram"] = []
 
 
 def send_notification(title: str, body: str):
     if PUSH_MODE == "digest":
+        block = f"{title}\n\n{body}"
         if ENABLE_BARK:
-            add_to_digest("Bark", body)
+            add_to_digest("Bark", block)
         if ENABLE_TELEGRAM:
-            add_to_digest("Telegram", body)
+            add_to_digest("Telegram", block)
     else:
         if ENABLE_BARK:
             send_push("Bark", title, body)
