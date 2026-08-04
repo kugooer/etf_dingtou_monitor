@@ -85,7 +85,7 @@ if missing:
 
 MA_PERIOD = 250
 
-PUSH_MODE = os.getenv("PUSH_MODE", "digest")
+PUSH_MODE = os.getenv("PUSH_MODE", "digest").strip() or "digest"
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 TELEGRAM_GROUP = os.getenv("TELEGRAM_GROUP", "")
